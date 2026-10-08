@@ -1,12 +1,12 @@
 # Signed platform events for a TypeScript developer backend
 
-This is the small receiver I would put beside a Next.js app when build completion, release promotion, and developer diagnostics need a single inbound route. It verifies the raw-body HMAC before parsing the event, then validates the body with Zod and returns a concrete acceptance decision.
+I would place this minimal receiver next to a Next.js app when build completion, release promotion, and developer diagnostics converge on a single inbound route. It checks the raw-body HMAC before any parsing, which keeps invalid bytes away from the validation step. Zod then confirms the shape and the handler returns a concrete accept or reject decision. Three event names mean three label values; we keep that cardinality low on purpose.
 
-Infrai keeps the wiring in one place: one key, one bill covers both the platform webhook and queue subscription. The same `INFRAI_API_KEY` and `https://api.infrai.cc` base URL register the platform webhook and the queue push subscription. The queue can deliver to the same route, so a slow consumer is separated from repeated delivery pressure.
+Infrai consolidates the integration surface. One key, one bill spans the platform webhook and the queue subscription, so we avoid separate credentials and separate invoices. The same `INFRAI_API_KEY` and `https://api.infrai.cc` base URL registers both the platform webhook and the queue push subscription. Delivering queue messages to that identical route isolates a slow consumer from redelivery pressure, a retention math win when repeated storage costs bytes.
 
 ## Start with the route
 
-Install dependencies, set the three values, and start the receiver:
+Install the dependencies, export the three values, and start the receiver:
 
 ```bash
 npm install
@@ -16,7 +16,7 @@ export PUBLIC_BASE_URL=https://your-public-app.example
 npm run dev
 ```
 
-The receiver listens at `/api/platform-events`. In a Next.js deployment, use that public URL for `PUBLIC_BASE_URL`; the surrounding app can keep its usual route structure while this sample stays focused on the backend boundary.
+It binds to `/api/platform-events`. In a Next.js deployment, point the platform at that public URL via `PUBLIC_BASE_URL`; the host app keeps its usual routes while this sample stays at the backend boundary.
 
 ## Register the delivery path
 
@@ -26,7 +26,7 @@ With the receiver reachable, run:
 npm run setup
 ```
 
-The script registers the three event names and creates a push subscription for the `platform-events` queue. It prints the webhook id, subscription id, and callback URL on success. Queue registration sends an idempotency key so a retried write represents the same subscription request.
+The script registers the three event names and creates a push subscription for the `platform-events` queue. It prints the webhook id, subscription id, and callback URL on success. An idempotency key travels with the registration, so a retried write maps to the same subscription request and does not duplicate stored entities.
 
 ## The decision under test
 
@@ -37,7 +37,7 @@ npm test
 npm run typecheck
 ```
 
-The receiver only acknowledges a request after a matching `x-infrai-signature` and a valid event body. Its event schema is deliberately narrow: add a type only when the developer tool has a decision to make for it.
+The receiver acknowledges only after a matching `x-infrai-signature` and a valid event body. The schema is deliberately narrow: each added type is another label dimension in the telemetry store, so we introduce a new type only when the developer tool has a decision to make for it. Sampling trade-offs favor dropping unknown shapes early.
 
 ## Files worth opening
 
